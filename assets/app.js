@@ -1,12 +1,12 @@
 (function(){
 document.documentElement.classList.add('js');
 var SERVICES=[
- {k:'gp',t:'General consultation',s:'From ₦15,000 · 20 min'},
- {k:'women',t:'Women\u2019s health',s:'30 min'},
- {k:'kids',t:'Children\u2019s health',s:'30 min'},
- {k:'chronic',t:'Hypertension & diabetes',s:'Review · 30 min'},
- {k:'lab',t:'Lab tests',s:'Home or walk-in'},
- {k:'mind',t:'Mental wellbeing',s:'45 min · video'}];
+ {k:'gp',t:'General consultation',s:'20 min',p:'from ₦12,000'},
+ {k:'women',t:'Women\u2019s health',s:'30 min',p:'₦18,000'},
+ {k:'kids',t:'Children\u2019s health',s:'30 min',p:'₦15,000'},
+ {k:'chronic',t:'Hypertension & diabetes',s:'30 min',p:'₦20,000'},
+ {k:'lab',t:'Lab tests',s:'Panel',p:'from ₦8,000'},
+ {k:'mind',t:'Mental wellbeing',s:'45 min',p:'₦22,000'}];
 function ready(fn){document.readyState!=='loading'?fn():document.addEventListener('DOMContentLoaded',fn);}
 ready(function(){
   // header + menu
@@ -29,8 +29,8 @@ ready(function(){
   var st={step:1,svc:null,day:null,time:null};
   var svcOpts=document.getElementById('svcOpts');
   SERVICES.forEach(function(s){var b=document.createElement('button');b.type='button';b.className='opt';b.setAttribute('role','radio');b.setAttribute('aria-checked','false');b.dataset.v=s.t;
-    b.innerHTML='<span class="svc-ic">'+(icons[s.k]||'')+'</span><span>'+s.t+'<small>'+s.s+'</small></span>';
-    b.addEventListener('click',function(){pick(svcOpts,b);st.svc=s.t;sync();});svcOpts.appendChild(b);});
+    b.innerHTML='<span class="svc-ic">'+(icons[s.k]||'')+'</span><span>'+s.t+'<small>'+s.s+' · '+s.p+'</small></span>';
+    b.dataset.p=s.p;b.addEventListener('click',function(){pick(svcOpts,b);st.svc=s.t;st.fee=s.p;sync();});svcOpts.appendChild(b);});
   function pick(group,btn){group.querySelectorAll('[role=radio]').forEach(function(x){x.setAttribute('aria-checked',x===btn?'true':'false');});}
   // days
   var daysEl=document.getElementById('days'),DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -51,13 +51,15 @@ ready(function(){
   var nextLbl=next.querySelector('span');
   function fmtDay(d){return DN[d.getDay()]+' '+d.getDate()+' '+MN[d.getMonth()];}
   function mode(){var m=bk.querySelector('input[name=mode]:checked');return m?m.value:'Video visit';}
+  function fee(){if(st.svc==='General consultation')return mode().indexOf('Video')===0?'₦12,000':'₦15,000';return st.fee||'';}
+  bk.querySelectorAll('input[name=mode]').forEach(function(r){r.addEventListener('change',function(){sync();});});
   function valid(){if(st.step===1)return !!st.svc;if(st.step===2)return !!(st.day&&st.time);return true;}
   function sync(){
     steps.forEach(function(s){s.classList.toggle('on',+s.dataset.step===st.step);});
     prog.forEach(function(p){var n=+p.dataset.p;p.classList.toggle('on',n===st.step);p.classList.toggle('done',n<st.step);if(n===st.step)p.setAttribute('aria-current','step');else p.removeAttribute('aria-current');});
     back.disabled=st.step===1||st.step===4; next.disabled=!valid();
     nextLbl.textContent=st.step===3?'Confirm booking':st.step===4?'Book another':'Continue';
-    var bits=[];if(st.svc)bits.push(st.svc);if(st.day)bits.push(fmtDay(st.day)+(st.time?' · '+st.time:''));
+    var bits=[];if(st.svc)bits.push(st.svc+' ('+fee()+')');if(st.day)bits.push(fmtDay(st.day)+(st.time?' · '+st.time:''));
     sum.textContent=st.step<4?bits.join(' — '):'';
   }
   function go(n){st.step=n;sync();var top=bk.getBoundingClientRect().top;if(top<0||top>window.innerHeight*.5)bk.scrollIntoView({behavior:'smooth',block:'start'});
@@ -72,6 +74,7 @@ ready(function(){
       document.getElementById('sSvc').textContent=st.svc;
       document.getElementById('sWhen').textContent=fmtDay(st.day)+', '+st.time;
       document.getElementById('sMode').textContent=mode();
+      document.getElementById('sFee').textContent=fee();
       document.getElementById('sPhone').textContent=ph.value.trim();
       document.getElementById('sRef').textContent='OD-'+Math.random().toString(36).slice(2,6).toUpperCase()+'-DEMO';
       go(4);return;}
@@ -82,7 +85,17 @@ ready(function(){
   document.getElementById('details').addEventListener('submit',function(e){e.preventDefault();});
   ['fName','fPhone'].forEach(function(id){document.getElementById(id).addEventListener('input',function(){this.removeAttribute('aria-invalid');document.getElementById('formErr').textContent='';});});
   // service links preselect
-  document.querySelectorAll('[data-service]').forEach(function(a){a.addEventListener('click',function(){var b=svcOpts.querySelector('[data-v="'+a.dataset.service+'"]');if(b){pick(svcOpts,b);st.svc=b.dataset.v;if(st.step!==1){st.step=1;}sync();}});});
+  document.querySelectorAll('[data-service]').forEach(function(a){a.addEventListener('click',function(){var b=svcOpts.querySelector('[data-v="'+a.dataset.service+'"]');if(b){pick(svcOpts,b);st.svc=b.dataset.v;st.fee=b.dataset.p;if(st.step!==1){st.step=1;}sync();}});});
   sync();
+  // faq: one open at a time
+  var faqs=[].slice.call(document.querySelectorAll('.faq-item'));
+  faqs.forEach(function(f){f.addEventListener('toggle',function(){if(f.open)faqs.forEach(function(o){if(o!==f)o.open=false;});});});
+  // sticky mobile book bar: after the hero, hidden over the booking flow and contact
+  var bar=document.getElementById('mbar'),hero=document.querySelector('.hero'),ct=document.getElementById('contact');
+  if(bar&&hero){var tick=false;
+    var upd=function(){tick=false;var vh=window.innerHeight,hb=hero.getBoundingClientRect().bottom,br=bk.getBoundingClientRect(),cr=ct?ct.getBoundingClientRect():{top:1e9};
+      var overBook=br.top<vh&&br.bottom>0,overCt=cr.top<vh-80;
+      bar.classList.toggle('show',hb<80&&!overBook&&!overCt);};
+    window.addEventListener('scroll',function(){if(!tick){tick=true;requestAnimationFrame(upd);}},{passive:true});window.addEventListener('resize',upd);upd();}
 });
 })();
